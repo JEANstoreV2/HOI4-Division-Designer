@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>HOI4 Division Designer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="page-tabs">
+        <button type="button" class="page-tab active" data-view="composition-view">Composition</button>
+        <button type="button" class="page-tab" data-view="research-view">Research</button>
+        <button type="button" class="page-tab" data-view="special-projects-view">Special Projects</button>
+        <button type="button" class="page-tab" data-view="doctrine-view">Doctrine</button>
+        <button type="button" class="page-tab" data-view="officer-corps-view">Officer Corps</button>
+        <button type="button" class="page-tab" data-view="tank-designer-view">Tank Designer</button>
+        <button type="button" class="page-tab" data-view="design-search-view">AI Comparison</button>
+        <button type="button" class="page-tab" data-view="patch-impact-view">Patch Impact</button>
+        <button type="button" id="reset-all-button" class="page-tab reset-all-button">Reset All</button>
+        <button type="button" id="toggle-all-previews-button" class="toggle-all-previews-button" aria-pressed="false">Show All Info</button>
+    </nav>
+
+    <div id="composition-view" class="view">
+        <h1>Division Composition</h1>
+
+        <div class="composition-layout">
+            <section>
+                <h2>Battalions</h2>
+                <p class="section-caption">5 columns; each column locks to the category of its first battalion. The bottom slot in each column is that column's Regimental Support option, unlocking once 3+ battalions are placed in it.</p>
+                <div class="battalion-grid">
+                    {% for col in range(5) %}
+                    <div class="battalion-column">
+                        {% for row in range(5) %}
+                            {% if row == 4 %}
+                            <button
+                                class="battalion-cell locked fifth-battalion-cell"
+                                data-column="{{ col }}"
+                                disabled
+                                title="Unlocks by mastering a Doctrine track that grants a 5th battalion row"
+                            >&times;</button>
+                            {% else %}
+                            <button class="battalion-cell" data-column="{{ col }}">+</button>
+                            {% endif %}
+                        {% endfor %}
+                        <button
+                            class="battalion-cell locked regimental-support-cell"
+                            data-rs-column="{{ col }}"
+                            disabled
+                            title="Unlocks once this column has 3+ battalions"
+                        >&times;</button>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section>
+                <h2>Support Companies</h2>
+                <p class="section-caption">5 slots. Picking an alternate type (e.g. Assault Engineer) replaces the conflicting one already chosen.</p>
+                <div class="support-column">
+                    {% for slot in range(5) %}
+                    <button class="battalion-cell support-cell" data-slot="{{ slot }}">+</button>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section>
+                <h2>Division Stats</h2>
+                <div class="terrain-picker">
+                    <label for="terrain-select">Terrain</label>
+                    <select id="terrain-select">
+                        <option value="">None</option>
+                        <optgroup label="Terrain">
+                            {% for t in terrain_types if t.is_map_terrain %}
+                            <option value="{{ t.key }}">{{ t.name }}</option>
+                            {% endfor %}
+                        </optgroup>
+                        <optgroup label="Situational">
+                            {% for t in terrain_types if not t.is_map_terrain %}
+                            <option value="{{ t.key }}">{{ t.name }}</option>
+                            {% endfor %}
+                        </optgroup>
+                    </select>
+                </div>
+                <div id="terrain-modifier-display"></div>
+                <div id="stats-panel"></div>
+            </section>
+
+            <section>
+                <h2>Saved Divisions</h2>
+                <p class="section-caption">Save the current division (every section - Composition, Research, Special Projects, Doctrine, Tank Designer designs, Terrain) under a name, then load it back later or compare two side by side.</p>
+                <div class="save-division-form">
+                    <input type="text" id="save-division-name" placeholder="Division name">
+                    <button type="button" id="save-division-button" class="battalion-option">Save Current Division</button>
+                </div>
+                <div id="saved-divisions-list"></div>
+                <div id="compare-area" hidden>
+                    <button type="button" id="close-compare-button" class="battalion-option">Close Comparison</button>
+                    <div class="compare-columns">
+                        <div class="compare-column">
+                            <h3 id="compare-name-a"></h3>
+                            <div id="terrain-modifier-display-a"></div>
+                            <div id="stats-panel-a"></div>
+                        </div>
+                        <div class="compare-column">
+                            <h3 id="compare-name-b"></h3>
+                            <div id="terrain-modifier-display-b"></div>
+                            <div id="stats-panel-b"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <div id="research-view" class="view" hidden>
+        <h1>Research</h1>
+        <p class="section-caption">Check off completed technologies. Research is permanent — once checked, a technology can't be unchecked. Composition only offers battalions/support companies/regimental support once the technology that unlocks them is done.</p>
+
+        <button type="button" id="research-all-button" class="battalion-option" title="Also completes every Special Project and whatever technologies they unlock">Research All</button>
+
+        <nav class="branch-tabs" id="branch-tabs"></nav>
+        <div id="research-list"></div>
+    </div>
+
+    <div id="special-projects-view" class="view" hidden>
+        <h1>Special Projects</h1>
+        <p class="section-caption">Check off completed Special Projects. Like Research, this is permanent and separate from it — some technologies and Tank Designer content require a Special Project completed first, in addition to their own research.</p>
+
+        <div id="special-projects-list"></div>
+    </div>
+
+    <div id="doctrine-view" class="view" hidden>
+        <h1>Grand Doctrine</h1>
+        <p class="section-caption">Pick a Grand Doctrine per folder, assign a Subdoctrine to each of its tracks, then claim each subdoctrine's rewards in order below. Mastering the right track unlocks a 5th battalion row in Composition; doctrine bonuses feed into Division Stats automatically.</p>
+
+        <div id="doctrine-folders"></div>
+
+        <h2>Progress</h2>
+        <div id="doctrine-progress"></div>
+    </div>
+
+    <div id="officer-corps-view" class="view" hidden>
+        <h1>Officer Corps</h1>
+        <p class="section-caption">Pick one Army Spirit per category - only the entries that bear on a stat this app tracks are shown (the rest of the real Officer Corps panel is country/army-wide meta this app doesn't model). None of these currently move Division Stats yet - they're flagged in their own info box pending a confirmed formula.</p>
+
+        <section>
+            <h2>Army</h2>
+            <div class="battalion-option-list" id="army-spirit-list-army"></div>
+        </section>
+        <section>
+            <h2>Division Command</h2>
+            <div class="battalion-option-list" id="army-spirit-list-division-command"></div>
+        </section>
+    </div>
+
+    <div id="tank-designer-view" class="view" hidden>
+        <h1>Tank Designer</h1>
+        <p class="section-caption">Pick a chassis, an optional role variant, a module per slot, and tick levels. Stats update live from the server's real formula. Saved designs live only in this tab for now — using them in Composition/Division Stats is a later phase.</p>
+
+        <div class="composition-layout">
+            <section>
+                <h2>Chassis</h2>
+                <div class="battalion-option-list" id="td-chassis-list"></div>
+
+                <div id="td-tier-row"></div>
+                <div id="td-role-row"></div>
+
+                <h2>Modules</h2>
+                <div class="doctrine-track-grid" id="td-module-grid"></div>
+
+                <h2>Ticks</h2>
+                <div id="td-tick-list"></div>
+
+                <button type="button" id="td-save-button" class="battalion-option">Save Design</button>
+
+                <h2>Saved Designs</h2>
+                <div id="td-saved-list"></div>
+            </section>
+
+            <section>
+                <h2>Design Stats</h2>
+                <div id="td-stats-panel"></div>
+            </section>
+        </div>
+    </div>
+
+    <div id="design-search-view" class="view" hidden>
+        <h1>AI Design Comparison</h1>
+        <p class="section-caption">Generates several candidate divisions from whatever's currently unlocked (Research/Doctrine/Special Projects/Terrain stay exactly as set elsewhere, unless overridden below by a Research Year - this searches what's buildable right now, not a hypothetical research path) and ranks them by a chosen stat, optionally as a ratio of two stats (e.g. Organisation per Production Cost). Starts fresh each time - it does not look at whatever's currently placed in Composition.</p>
+
+        <div class="design-search-form">
+            <label>Show the division with the highest
+                <select id="design-search-numerator"></select>
+            </label>
+            <label>per (optional)
+                <select id="design-search-denominator"></select>
+            </label>
+        </div>
+
+        <section class="design-search-constraints">
+            <h2>Constraints (optional)</h2>
+            <p class="section-caption">If no design can satisfy every constraint below, nothing is shown - loosen or remove one and try again.</p>
+
+            <h3>Stat Bounds</h3>
+            <div id="design-search-stat-bounds"></div>
+            <button type="button" id="design-search-add-bound-button" class="battalion-option">Add Stat Constraint</button>
+
+            <h3>Research Year (optional)</h3>
+            <label>Only use technology researchable by - leave blank for no limit
+                <input type="number" id="design-search-year-cutoff" placeholder="e.g. 1940" min="1914" max="1946">
+            </label>
+            <button type="button" id="design-search-clear-year-cutoff-button" class="battalion-option">Clear</button>
+
+            <h3>Require/Exclude Battalion(s)</h3>
+            <p class="section-caption">Click once to require at least one of a type; click again to make it the dominant type (the largest single share of the division); click again to make it the ONLY type anywhere in the division; click again to exclude it entirely (e.g. make sure the division never includes Rangers); click again to clear.</p>
+            <div id="design-search-required-battalions"></div>
+
+            <h3>Exclude an Entire Category</h3>
+            <p class="section-caption">Removes every battalion type in that category from the search (e.g. exclude all Armored Combat Support), not just one type at a time. Click to exclude, click again to clear.</p>
+            <div id="design-search-excluded-categories"></div>
+
+            <h3>Require a Doctrine (optional)</h3>
+            <p class="section-caption">Only matters when "Let AI choose Doctrine" below is checked - pins one Grand Doctrine and/or Subdoctrine while everything else about Doctrine still searches freely. Click to require, click again to clear.</p>
+            <div id="design-search-required-doctrines"></div>
+
+            <h3>Let AI Choose Other Modifiers</h3>
+            <p class="section-caption">Unchecked, each one stays exactly as set on its own tab - checked, the AI searches that too instead of holding it fixed.</p>
+            <label><input type="checkbox" id="design-search-vary-army-spirits"> Let AI choose Officer Corps</label>
+            <label><input type="checkbox" id="design-search-vary-doctrine"> Let AI choose Doctrine</label>
+
+            <h3>Tank Designer</h3>
+            <label><input type="checkbox" id="design-search-use-tank-designs" checked> Use my saved Tank Designer templates in this search</label>
+            <p class="section-caption">Uncheck to see what's achievable with default/tier equipment alone instead of your own saved designs - nothing to "choose" here otherwise, since whichever battalions the search picks already use your saved template automatically whenever one applies.</p>
+        </section>
+
+        <button type="button" id="design-search-generate-button" class="battalion-option">Generate Designs</button>
+
+        <div id="design-search-results"></div>
+    </div>
+
+    <div id="patch-impact-view" class="view" hidden>
+        <h1>Patch Impact Preview</h1>
+        <p class="section-caption">Preview how a staged (not-yet-real) patch would change every division you've already saved, before deciding to actually apply it to this app's real data. Staging a patch is a manual step done with Claude in a session, the same way every real balance update (1.19.3, 1.19.4) has already been applied directly - this tab just previews the effect first.</p>
+
+        <label>Staged patch
+            <select id="patch-select"></select>
+        </label>
+        <p id="patch-source-notes" class="section-caption"></p>
+        <button type="button" id="preview-patch-impact-button" class="battalion-option">Preview Impact on Saved Divisions</button>
+
+        <div id="patch-impact-results"></div>
+    </div>
+
+    <dialog id="battalion-dialog">
+        <h2 id="battalion-dialog-title">Select Battalion</h2>
+        <div id="battalion-dialog-body"></div>
+        <button id="battalion-dialog-cancel" type="button">Cancel</button>
+    </dialog>
+
+    <dialog id="support-dialog">
+        <h2 id="support-dialog-title">Select Support Company</h2>
+        <div id="support-dialog-body"></div>
+        <button id="support-dialog-cancel" type="button">Cancel</button>
+    </dialog>
+
+    <dialog id="regimental-support-dialog">
+        <h2 id="regimental-support-dialog-title">Select Regimental Support</h2>
+        <div id="regimental-support-dialog-body"></div>
+        <button id="regimental-support-dialog-cancel" type="button">Cancel</button>
+    </dialog>
+
+    <dialog id="doctrine-dialog">
+        <h2 id="doctrine-dialog-title">Select Subdoctrine</h2>
+        <div id="doctrine-dialog-body"></div>
+        <button id="doctrine-dialog-cancel" type="button">Cancel</button>
+    </dialog>
+
+    <dialog id="tank-module-dialog">
+        <h2 id="tank-module-dialog-title">Select Module</h2>
+        <div id="tank-module-dialog-body"></div>
+        <button id="tank-module-dialog-cancel" type="button">Cancel</button>
+    </dialog>
+
+    <script id="battalion-data" type="application/json">{{ battalions | tojson }}</script>
+    <script id="category-label-data" type="application/json">{{ category_labels | tojson }}</script>
+    <script id="support-company-data" type="application/json">{{ support_companies | tojson }}</script>
+    <script id="regimental-support-data" type="application/json">{{ regimental_support | tojson }}</script>
+    <script id="technology-data" type="application/json">{{ technologies | tojson }}</script>
+    <script id="external-dependency-data" type="application/json">{{ external_dependencies | tojson }}</script>
+    <script id="always-unlocked-subunit-data" type="application/json">{{ always_unlocked_subunits | tojson }}</script>
+    <script id="special-projects-data" type="application/json">{{ special_projects | tojson }}</script>
+    <script id="doctrine-track-data" type="application/json">{{ doctrine_tracks | tojson }}</script>
+    <script id="grand-doctrine-data" type="application/json">{{ grand_doctrines | tojson }}</script>
+    <script id="subdoctrine-data" type="application/json">{{ subdoctrines | tojson }}</script>
+    <script id="army-spirit-category-data" type="application/json">{{ army_spirit_categories | tojson }}</script>
+    <script id="army-spirit-data" type="application/json">{{ army_spirits | tojson }}</script>
+    <script id="tank-chassis-data" type="application/json">{{ tank_chassis | tojson }}</script>
+    <script id="tank-role-data" type="application/json">{{ tank_roles | tojson }}</script>
+    <script id="tank-module-data" type="application/json">{{ tank_modules | tojson }}</script>
+    <script id="tank-upgrade-data" type="application/json">{{ tank_upgrades | tojson }}</script>
+    <script id="always-unlocked-module-data" type="application/json">{{ always_unlocked_modules | tojson }}</script>
+    <script id="staged-patches-data" type="application/json">{{ staged_patches | tojson }}</script>
+    <script type="module" src="{{ url_for('static', filename='js/page_tabs.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='js/composition.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='js/support_companies.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='js/regimental_support.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='js/research.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='js/special_projects.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='js/doctrines.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='js/army_spirits.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='js/tank_designer.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='js/stats.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='js/design_search.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='js/persistence.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='js/saved_divisions.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='js/patch_preview.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='js/preview_toggle.js') }}"></script>
+</body>
+</html>

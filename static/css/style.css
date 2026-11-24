@@ -1,0 +1,635 @@
+body {
+    font-family: sans-serif;
+    margin: 2rem;
+}
+
+/* General "this is currently inaccessible" treatment - applies everywhere
+   a native disabled attribute is used (locked battalion/regimental-support
+   cells, locked research checkboxes, etc.) on top of any more specific
+   styling a locked element already has, so every kind of lock reads as
+   visually dimmed rather than only some. */
+button:disabled, input:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.composition-layout {
+    display: flex;
+    align-items: flex-start;
+    gap: 2.5rem;
+    flex-wrap: wrap;
+}
+
+.section-caption {
+    margin-top: 0;
+    margin-bottom: 0.75rem;
+    font-size: 0.8rem;
+    color: #666;
+    max-width: 22rem;
+}
+
+.battalion-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.5rem;
+    max-width: 700px;
+}
+
+.battalion-column {
+    display: grid;
+    grid-template-rows: repeat(5, 1fr);
+    gap: 0.5rem;
+}
+
+.regimental-support-cell {
+    margin-top: 0.5rem;
+    border-top: 2px solid #999;
+}
+
+.support-column {
+    display: grid;
+    grid-template-rows: repeat(5, 1fr);
+    gap: 0.5rem;
+    width: 8rem;
+}
+
+.battalion-cell {
+    height: 4rem;
+    border: 1px solid #888;
+    border-radius: 4px;
+    background: #f4f4f4;
+    font-size: 0.8rem;
+    cursor: pointer;
+    padding: 0.25rem;
+    text-align: center;
+}
+
+.battalion-cell:hover:not(.locked) {
+    background: #e0e0e0;
+}
+
+.battalion-cell.filled {
+    background: #d9ecff;
+    font-weight: bold;
+}
+
+.battalion-cell.locked {
+    cursor: not-allowed;
+    color: #aaa;
+    background: repeating-linear-gradient(
+        45deg,
+        #eee,
+        #eee 6px,
+        #ddd 6px,
+        #ddd 12px
+    );
+}
+
+dialog {
+    border: none;
+    border-radius: 8px;
+    padding: 1.5rem;
+    max-width: 500px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+dialog::backdrop {
+    background: rgba(0, 0, 0, 0.4);
+}
+
+.category-group h3 {
+    margin-bottom: 0.25rem;
+    font-size: 0.9rem;
+    color: #555;
+}
+
+.battalion-option-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.25rem;
+    margin-bottom: 0.75rem;
+}
+
+.battalion-option {
+    text-align: left;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: white;
+    cursor: pointer;
+}
+
+.battalion-option:hover {
+    background: #f0f0f0;
+}
+
+/* A picker option that's the CURRENT selection (chassis/tier/role in Tank
+   Designer, an active Grand Doctrine in Doctrine) - .battalion-option had
+   no visual "selected" state at all before this, unlike every other picker
+   pattern in this project (.battalion-cell.filled, .page-tab.active). */
+.battalion-option.filled {
+    background: #2c5aa0;
+    color: white;
+    border-color: #2c5aa0;
+}
+
+.battalion-option.filled:hover {
+    background: #244883;
+}
+
+/* Pre-selection stat preview (added 2026-10-08, see
+   static/js/item_stats_preview.js) - a small toggle sits beside each
+   option; the panel below only appears once expanded. */
+.option-with-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.option-with-preview-row {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.option-with-preview-row .battalion-option,
+.option-with-preview-row .tech-row,
+.option-with-preview-row .doctrine-track-slot {
+    flex: 1;
+}
+
+.stat-preview-toggle {
+    flex: 0 0 auto;
+    width: 1.75rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #f4f4f4;
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+
+.stat-preview-toggle[aria-expanded="true"] {
+    background: #2c5aa0;
+    color: white;
+    border-color: #2c5aa0;
+}
+
+.stat-preview-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    background: #f4f4f4;
+    border-radius: 4px;
+    padding: 0.35rem 0.5rem;
+    font-size: 0.75rem;
+}
+
+/* The [hidden] attribute's own display:none (set via panel.hidden in
+   item_stats_preview.js) has the same specificity as .stat-preview-panel's
+   own display:flex above - without this, the later rule in the stylesheet
+   always won, so toggling `hidden` had no visible effect at all (the panel
+   stayed flex-rendered forever once it first got content). */
+.stat-preview-panel[hidden] {
+    display: none;
+}
+
+.stat-preview-panel-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.stat-preview-panel-label {
+    color: #666;
+}
+
+.stat-preview-panel-value {
+    font-weight: bold;
+}
+
+.stat-preview-warning {
+    color: #8a6d1d;
+    margin: 0;
+}
+
+/* Raw-bonus-data preview (Research/Doctrine/Special Projects, added
+   2026-11-01, see static/js/item_stats_preview.js's attachBonusPreview) -
+   shares .stat-preview-panel/.stat-preview-toggle above, adds its own
+   list styling since a bonus's content (named targets + field lines) is
+   a different shape than a battalion's flat key-stats row. */
+.stat-preview-panel-sub-heading {
+    margin: 0.2rem 0 0;
+    font-weight: bold;
+}
+
+/* A group heading (e.g. "Infantry Milestone") separating several distinct
+   sources shown in one panel - see item_stats_preview.js's renderBonusPanel
+   `effects.heading` handling, added 2026-11-01 for the grand doctrine
+   button's preview (immediate effects + every track's milestone). */
+.stat-preview-panel-heading {
+    margin: 0.4rem 0 0.1rem;
+    padding-top: 0.35rem;
+    border-top: 1px solid #ccc;
+    font-weight: bold;
+    font-style: italic;
+}
+
+.stat-preview-panel-heading:first-child {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+}
+
+.stat-preview-bonus-list {
+    margin: 0;
+    padding-left: 1.1rem;
+}
+
+.page-tabs, .branch-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    overflow-x: auto;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.page-tab, .branch-tab, .toggle-all-previews-button {
+    padding: 0.5rem 1rem;
+    border: 1px solid #888;
+    border-radius: 4px;
+    background: #f4f4f4;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.page-tab.active, .branch-tab.active {
+    background: #2c5aa0;
+    color: white;
+    border-color: #2c5aa0;
+}
+
+/* Not a view-switching tab (doesn't get an "active" state) - a destructive
+   action, pushed to the far right of the tab bar and tinted to read as
+   different in kind from Composition/Research/etc. */
+.reset-all-button {
+    margin-left: auto;
+    color: #a33;
+    border-color: #a33;
+}
+
+/* The global show/hide-all-info-boxes toggle (static/js/preview_toggle.js,
+   added 2026-11-01) - sits right after Reset All, sharing its "pushed to
+   the far right" position for free since it's the next sibling and Reset
+   All's own margin-left:auto already claims the leftover space. Uses
+   aria-pressed rather than a "active" class - it's a real toggle, not a
+   view selector, the same distinction .stat-preview-toggle[aria-expanded]
+   already draws. */
+.toggle-all-previews-button[aria-pressed="true"] {
+    background: #2c5aa0;
+    color: white;
+    border-color: #2c5aa0;
+}
+
+.view[hidden] {
+    display: none;
+}
+
+.tech-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 2.75rem;
+    padding: 0.5rem 0.25rem;
+    border-bottom: 1px solid #e0e0e0;
+    cursor: pointer;
+}
+
+.tech-row.locked {
+    color: #999;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.tech-row input[type="checkbox"] {
+    flex: none;
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+.tech-row-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.tech-row-name {
+    font-weight: bold;
+}
+
+.tech-row.locked .tech-row-name {
+    font-weight: normal;
+}
+
+.tech-row-reason {
+    font-size: 0.75rem;
+    color: #999;
+}
+
+#stats-panel {
+    min-width: 14rem;
+    max-width: 20rem;
+}
+
+.terrain-picker {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.terrain-picker label {
+    font-size: 0.85rem;
+    color: #555;
+}
+
+.terrain-picker select {
+    flex: 1;
+}
+
+.stats-warning {
+    background: #fff3cd;
+    border: 1px solid #e0c26a;
+    border-radius: 4px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+    margin-top: 0;
+}
+
+.stats-warning ul {
+    margin: 0.25rem 0 0 1.1rem;
+    padding: 0;
+}
+
+.tick-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 2.5rem;
+    padding: 0.35rem 0.25rem;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.tick-row-name {
+    flex: 1;
+    font-weight: bold;
+}
+
+.tick-row-level {
+    min-width: 2.5rem;
+    text-align: center;
+}
+
+.tick-row button {
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid #888;
+    border-radius: 4px;
+    background: #f4f4f4;
+    cursor: pointer;
+}
+
+.stats-headline {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 1rem;
+}
+
+.stats-headline-value {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #2c5aa0;
+    line-height: 1;
+}
+
+.stats-headline-label {
+    font-size: 0.9rem;
+    color: #555;
+}
+
+.stats-secondary {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.stats-secondary-item {
+    display: flex;
+    flex-direction: column;
+    background: #f4f4f4;
+    border-radius: 4px;
+    padding: 0.4rem 0.6rem;
+}
+
+.stats-secondary-value {
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+.stats-secondary-suffix {
+    font-size: 0.7rem;
+    font-weight: normal;
+    color: #666;
+}
+
+.stats-secondary-label {
+    font-size: 0.75rem;
+    color: #666;
+}
+
+.stats-list {
+    display: grid;
+    grid-template-columns: auto auto;
+    justify-content: space-between;
+    gap: 0.25rem 1rem;
+    margin: 0;
+    font-size: 0.85rem;
+}
+
+.stats-list dt {
+    color: #666;
+}
+
+.stat-field-note {
+    font-size: 0.75rem;
+    font-style: italic;
+}
+
+.stats-list dd {
+    margin: 0;
+    text-align: right;
+    font-weight: bold;
+}
+
+#doctrine-folders section {
+    margin-bottom: 1.5rem;
+}
+
+.doctrine-track-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+    gap: 0.5rem;
+    max-width: 700px;
+    margin-top: 0.75rem;
+}
+
+.doctrine-track-slot {
+    height: auto;
+    min-height: 4.5rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.15rem;
+}
+
+.doctrine-track-label {
+    font-size: 0.7rem;
+    color: #666;
+    font-weight: normal;
+}
+
+.doctrine-track-value {
+    font-size: 0.85rem;
+}
+
+.doctrine-track-mastered {
+    font-size: 0.7rem;
+    color: #b8860b;
+}
+
+.doctrine-progress-block {
+    margin-bottom: 1.5rem;
+}
+
+.doctrine-progress-block .tech-row {
+    cursor: default;
+}
+
+/* Persistence Phase 2 (added 2026-11-02) - the "Saved Divisions" section. */
+.save-division-form {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.save-division-form input {
+    flex: 1;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.compare-columns {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.compare-column {
+    flex: 1;
+    min-width: 220px;
+}
+
+.design-search-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.design-search-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.85rem;
+}
+
+.design-search-constraints {
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.design-search-constraints h3 {
+    margin: 0.75rem 0 0.4rem;
+    font-size: 0.9rem;
+}
+
+.design-search-constraints label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.85rem;
+    max-width: 12rem;
+}
+
+.design-search-bound-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.design-search-bound-row input {
+    width: 5.5rem;
+    padding: 0.3rem 0.4rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.design-result-card {
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.design-result-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.design-result-rank {
+    font-weight: bold;
+}
+
+.design-result-score {
+    color: #555;
+}
+
+.design-result-summary {
+    margin: 0.5rem 0 0;
+    color: #333;
+}
+
+.patch-impact-card {
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.patch-impact-card h3 {
+    margin: 0 0 0.5rem;
+}
+
+@media (max-width: 480px) {
+    body {
+        margin: 0.75rem;
+    }
+}
